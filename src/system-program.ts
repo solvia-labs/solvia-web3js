@@ -4,7 +4,7 @@ import {encodeData, decodeData, InstructionType} from './instruction';
 import * as Layout from './layout';
 import {NONCE_ACCOUNT_LENGTH} from './nonce-account';
 import {PublicKey} from './publickey';
-import {SYSVAR_RECENT_BLOCKHASHES_PUBKEY, SYSVAR_RENT_PUBKEY} from './sysvar';
+import {SYSVAR_FNODEDATA_PUBKEY, SYSVAR_RECENT_BLOCKHASHES_PUBKEY, SYSVAR_RENT_PUBKEY} from './sysvar';
 import {Transaction, TransactionInstruction} from './transaction';
 import {toBuffer} from './util/to-buffer';
 
@@ -34,6 +34,18 @@ export type TransferParams = {
   toPubkey: PublicKey;
   /** Amount of lamports to transfer */
   lamports: number;
+};
+
+/**
+ * CreateNode system transaction params
+ */
+export type CreateNodeParams = {
+  /** Account that will burn lamports */
+  fromPubkey: PublicKey;
+  /** Reward Address of Node */
+  reward_address: PublicKey;
+  /** Node_Type of the node */
+  node_type: number;
 };
 
 /**
@@ -528,7 +540,8 @@ export type SystemInstructionType =
   | 'InitializeNonceAccount'
   | 'Transfer'
   | 'TransferWithSeed'
-  | 'WithdrawNonceAccount';
+  | 'WithdrawNonceAccount'
+  | 'CreateNode';
 
 /**
  * An enumeration of valid system InstructionType's
@@ -631,6 +644,14 @@ export const SYSTEM_INSTRUCTION_LAYOUTS: {
       Layout.publicKey('programId'),
     ]),
   },
+  CreateNode: {
+    index: 12,
+    layout: BufferLayout.struct([
+      BufferLayout.u32('instruction'),
+      Layout.publicKey('reward_address'),
+      BufferLayout.s8('node_type'),
+    ]),
+  },
 });
 
 /**
@@ -698,6 +719,46 @@ export class SystemProgram {
         {pubkey: params.toPubkey, isSigner: false, isWritable: true},
       ];
     }
+
+    return new TransactionInstruction({
+      keys,
+      programId: this.programId,
+      data,
+    });
+  }
+
+	
+  /**
+   * Generate a transaction instruction that transfers lamports from one account to another
+   */
+  static createnode(
+      params: CreateNodeParams,
+  ): TransactionInstruction {
+    let data;
+    let keys;
+    // if ('basePubkey' in params) {
+    //   const type = SYSTEM_INSTRUCTION_LAYOUTS.TransferWithSeed;
+    //   data = encodeData(type, {
+    //     lamports: params.lamports,
+    //     seed: params.seed,
+    //     programId: toBuffer(params.programId.toBuffer()),
+    //   });
+    //   keys = [
+    //     {pubkey: params.fromPubkey, isSigner: false, isWritable: true},
+    //     {pubkey: params.basePubkey, isSigner: true, isWritable: false},
+    //     {pubkey: params.toPubkey, isSigner: false, isWritable: true},
+    //   ];
+    // } else {
+      const type = SYSTEM_INSTRUCTION_LAYOUTS.CreateNode;
+      data = encodeData(type, {
+        reward_address: toBuffer(params.reward_address.toBuffer()),
+        node_type: params.node_type,
+      });
+      keys = [
+        {pubkey: params.fromPubkey, isSigner: true, isWritable: true},
+        {pubkey: SYSVAR_FNODEDATA_PUBKEY, isSigner: false, isWritable: true},
+      ];
+    //}
 
     return new TransactionInstruction({
       keys,

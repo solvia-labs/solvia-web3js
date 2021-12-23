@@ -23,3 +23,7 @@ export const SYSVAR_STAKE_HISTORY_PUBKEY = new PublicKey(
 export const SYSVAR_INSTRUCTIONS_PUBKEY = new PublicKey(
   'Sysvar1nstructions1111111111111111111111111',
 );
+
+export const SYSVAR_FNODEDATA_PUBKEY = new PublicKey(
+    'SysvarFNodeData1111111111111111111111111111',
+);
