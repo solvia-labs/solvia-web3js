@@ -42,6 +42,8 @@ export type TransferParams = {
 export type CreateNodeParams = {
   /** Account that will burn lamports */
   fromPubkey: PublicKey;
+  /** Account that will burn lamports */
+  SysvarFNDataPubkey: PublicKey;
   /** Reward Address of Node */
   reward_address: PublicKey;
   /** Node_Type of the node */
@@ -305,8 +307,9 @@ export class SystemInstruction {
 
     return {
       fromPubkey: instruction.keys[0].pubkey,
+      SysvarFNDataPubkey: instruction.keys[1].pubkey,
       reward_address: new PublicKey(reward_address),
-      node_type,
+      node_type
     };
   }
 
