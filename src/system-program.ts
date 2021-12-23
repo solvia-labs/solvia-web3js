@@ -292,6 +292,26 @@ export class SystemInstruction {
   }
 
   /**
+   * Decode a createnode system instruction and retrieve the instruction params.
+   */
+  static decodeCreateNode(instruction: TransactionInstruction): CreateNodeParams {
+    this.checkProgramId(instruction.programId);
+    this.checkKeyLength(instruction.keys, 2);
+
+    const {reward_address, node_type} = decodeData(
+      SYSTEM_INSTRUCTION_LAYOUTS.CreateNode,
+      instruction.data,
+    );
+
+    return {
+      fromPubkey: instruction.keys[0].pubkey,
+      reward_address: new PublicKey(reward_address),
+      node_type,
+    };
+  }
+
+
+  /**
    * Decode a transfer with seed system instruction and retrieve the instruction params.
    */
   static decodeTransferWithSeed(
