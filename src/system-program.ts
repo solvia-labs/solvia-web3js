@@ -4,7 +4,7 @@ import {encodeData, decodeData, InstructionType} from './instruction';
 import * as Layout from './layout';
 import {NONCE_ACCOUNT_LENGTH} from './nonce-account';
 import {PublicKey} from './publickey';
-import {SYSVAR_FNODEDATA_PUBKEY, SYSVAR_RECENT_BLOCKHASHES_PUBKEY, SYSVAR_RENT_PUBKEY} from './sysvar';
+import {GRANT_DATA_PUBKEY, SYSVAR_FNODEDATA_PUBKEY, SYSVAR_RECENT_BLOCKHASHES_PUBKEY, SYSVAR_RENT_PUBKEY} from './sysvar';
 import {Transaction, TransactionInstruction} from './transaction';
 import {toBuffer} from './util/to-buffer';
 
@@ -42,12 +42,42 @@ export type TransferParams = {
 export type CreateNodeParams = {
   /** Account that will burn lamports */
   fromPubkey: PublicKey;
-  /** Account that will burn lamports */
+  /** SysvarFNData account */
   SysvarFNDataPubkey: PublicKey;
   /** Reward Address of Node */
   reward_address: PublicKey;
   /** Node_Type of the node */
   node_type: number;
+};
+
+/**
+ * AddGrant system transaction params
+ */
+export type AddGrantParams = {
+  /** Account that will send TX */
+  fromPubkey: PublicKey;
+  /** GrantDataAccountPubKey */
+  GrantDataAccountPubKey: PublicKey;
+  /** GrantID */
+  GrantID: number;
+  /** Reward Address of Grant */
+  ReceivingAddress: PublicKey;
+  /** GrantAmount in lamports */
+  GrantAmount: number;
+};
+
+/**
+ * VoteOnGrant system transaction params
+ */
+export type VoteOnGrant = {
+  /** Account that will send TX */
+  fromPubkey: PublicKey;
+  /** GrantDataAccountPubKey */
+  GrantDataAccountPubKey: PublicKey;
+  /** GrantHash */
+  GrantHash: string;
+  /** Vote on Grant */
+  Vote: boolean;
 };
 
 /**
@@ -564,7 +594,9 @@ export type SystemInstructionType =
   | 'Transfer'
   | 'TransferWithSeed'
   | 'WithdrawNonceAccount'
-  | 'CreateNode';
+  | 'CreateNode'
+  | 'AddGrant'
+  | 'VoteOnGrant';
 
 /**
  * An enumeration of valid system InstructionType's
@@ -675,6 +707,23 @@ export const SYSTEM_INSTRUCTION_LAYOUTS: {
       BufferLayout.s8('node_type'),
     ]),
   },
+  AddGrant: {
+    index: 13,
+    layout: BufferLayout.struct([
+      BufferLayout.u32('instruction'),
+      BufferLayout.s16('id'),
+      Layout.publicKey('receivingaddress'),
+      BufferLayout.ns64('amount'),
+    ]),
+  },
+  VoteOnGrant: {
+    index: 14,
+    layout: BufferLayout.struct([
+      BufferLayout.u32('instruction'),
+      BufferLayout.blob(32, 'granthash'),
+      BufferLayout.blob(1/8,'vote'),
+    ]),
+  },
 });
 
 /**
@@ -752,7 +801,7 @@ export class SystemProgram {
 
 	
   /**
-   * Generate a transaction instruction that transfers lamports from one account to another
+   * Generate a transaction instruction to create a Disintegration Node
    */
   static createnode(
       params: CreateNodeParams,
@@ -781,6 +830,61 @@ export class SystemProgram {
         {pubkey: params.fromPubkey, isSigner: true, isWritable: true},
         {pubkey: SYSVAR_FNODEDATA_PUBKEY, isSigner: false, isWritable: true},
       ];
+    //}
+
+    return new TransactionInstruction({
+      keys,
+      programId: this.programId,
+      data,
+    });
+  }
+
+  /**
+   * Generate a transaction instruction to add grant
+   */
+  static addgrant(
+    params: AddGrantParams,
+  ): TransactionInstruction {
+    let data;
+    let keys;
+
+    const type = SYSTEM_INSTRUCTION_LAYOUTS.AddGrant;
+    data = encodeData(type, {
+      grantid: params.GrantID,
+      receiving_address: toBuffer(params.ReceivingAddress.toBuffer()),
+      amount: params.GrantAmount,
+    });
+    keys = [
+      {pubkey: params.fromPubkey, isSigner: true, isWritable: true},
+      {pubkey: GRANT_DATA_PUBKEY, isSigner: false, isWritable: true},
+    ];
+    //}
+
+    return new TransactionInstruction({
+      keys,
+      programId: this.programId,
+      data,
+    });
+  }
+
+  /**
+   * Generate a transaction instruction to vote on a grant
+   */
+  static voteongrant(
+    params: VoteOnGrant,
+  ): TransactionInstruction {
+    let data;
+    let keys;
+
+    const type = SYSTEM_INSTRUCTION_LAYOUTS.VoteOnGrant;
+    data = encodeData(type, {
+      granthash: params.GrantHash,
+      vote: params.Vote,
+    });
+    keys = [
+      {pubkey: params.fromPubkey, isSigner: true, isWritable: true},
+      {pubkey: GRANT_DATA_PUBKEY, isSigner: false, isWritable: true},
+    ];
     //}
 
     return new TransactionInstruction({
