@@ -4,9 +4,10 @@ import {encodeData, decodeData, InstructionType} from './instruction';
 import * as Layout from './layout';
 import {NONCE_ACCOUNT_LENGTH} from './nonce-account';
 import {PublicKey} from './publickey';
-import {GRANT_DATA_PUBKEY, SYSVAR_FNODEDATA_PUBKEY, SYSVAR_RECENT_BLOCKHASHES_PUBKEY, SYSVAR_RENT_PUBKEY} from './sysvar';
+import {GRANT_DATA_PUBKEY, SYSVAR_CLOCK_PUBKEY, SYSVAR_FNODEDATA_PUBKEY, SYSVAR_RECENT_BLOCKHASHES_PUBKEY, SYSVAR_RENT_PUBKEY} from './sysvar';
 import {Transaction, TransactionInstruction} from './transaction';
 import {toBuffer} from './util/to-buffer';
+import {Buffer} from 'buffer';
 
 /**
  * Create account system transaction params
@@ -42,8 +43,6 @@ export type TransferParams = {
 export type CreateNodeParams = {
   /** Account that will burn lamports */
   fromPubkey: PublicKey;
-  /** SysvarFNData account */
-  SysvarFNDataPubkey: PublicKey;
   /** Reward Address of Node */
   reward_address: PublicKey;
   /** Node_Type of the node */
@@ -56,8 +55,6 @@ export type CreateNodeParams = {
 export type AddGrantParams = {
   /** Account that will send TX */
   fromPubkey: PublicKey;
-  /** GrantDataAccountPubKey */
-  GrantDataAccountPubKey: PublicKey;
   /** GrantID */
   GrantID: number;
   /** Reward Address of Grant */
@@ -72,12 +69,20 @@ export type AddGrantParams = {
 export type VoteOnGrant = {
   /** Account that will send TX */
   fromPubkey: PublicKey;
-  /** GrantDataAccountPubKey */
-  GrantDataAccountPubKey: PublicKey;
   /** GrantHash */
-  GrantHash: string;
+  GrantHash: Buffer;
   /** Vote on Grant */
   Vote: boolean;
+};
+
+/**
+ * DissolveGrant system transaction params
+ */
+export type DissolveGrant = {
+  /** Account that will send TX */
+  fromPubkey: PublicKey;
+  /** GrantHash */
+  GrantHash: Buffer;
 };
 
 /**
@@ -337,7 +342,6 @@ export class SystemInstruction {
 
     return {
       fromPubkey: instruction.keys[0].pubkey,
-      SysvarFNDataPubkey: instruction.keys[1].pubkey,
       reward_address: new PublicKey(reward_address),
       node_type
     };
@@ -596,7 +600,8 @@ export type SystemInstructionType =
   | 'WithdrawNonceAccount'
   | 'CreateNode'
   | 'AddGrant'
-  | 'VoteOnGrant';
+  | 'VoteOnGrant'
+  | 'DissolveGrant';
 
 /**
  * An enumeration of valid system InstructionType's
@@ -711,8 +716,8 @@ export const SYSTEM_INSTRUCTION_LAYOUTS: {
     index: 13,
     layout: BufferLayout.struct([
       BufferLayout.u32('instruction'),
-      BufferLayout.s16('id'),
-      Layout.publicKey('receivingaddress'),
+      BufferLayout.s16('grantid'),
+      Layout.publicKey('receiving_address'),
       BufferLayout.ns64('amount'),
     ]),
   },
@@ -720,8 +725,15 @@ export const SYSTEM_INSTRUCTION_LAYOUTS: {
     index: 14,
     layout: BufferLayout.struct([
       BufferLayout.u32('instruction'),
-      BufferLayout.blob(32, 'granthash'),
-      BufferLayout.blob(1/8,'vote'),
+      BufferLayout.blob(32,'granthash'),
+      BufferLayout.blob(1,'vote'),
+    ]),
+  },
+  DissolveGrant: {
+    index: 15,
+    layout: BufferLayout.struct([
+      BufferLayout.u32('instruction'),
+      BufferLayout.blob(32,'granthash'),
     ]),
   },
 });
@@ -857,6 +869,7 @@ export class SystemProgram {
     keys = [
       {pubkey: params.fromPubkey, isSigner: true, isWritable: true},
       {pubkey: GRANT_DATA_PUBKEY, isSigner: false, isWritable: true},
+	  {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false},
     ];
     //}
 
@@ -876,10 +889,15 @@ export class SystemProgram {
     let data;
     let keys;
 
+    let vote_buffer = Buffer.from('00','hex');
+    if (params.Vote){
+      vote_buffer = Buffer.from('01','hex');
+    }
+
     const type = SYSTEM_INSTRUCTION_LAYOUTS.VoteOnGrant;
     data = encodeData(type, {
       granthash: params.GrantHash,
-      vote: params.Vote,
+      vote: vote_buffer,
     });
     keys = [
       {pubkey: params.fromPubkey, isSigner: true, isWritable: true},
