@@ -73,6 +73,8 @@ export type VoteOnGrant = {
   GrantHash: Buffer;
   /** Vote on Grant */
   Vote: boolean;
+  /** NodeHash from which vote is to be casted */
+  NodeHash: Buffer;
 };
 
 /**
@@ -727,6 +729,7 @@ export const SYSTEM_INSTRUCTION_LAYOUTS: {
       BufferLayout.u32('instruction'),
       BufferLayout.blob(32,'granthash'),
       BufferLayout.blob(1,'vote'),
+      BufferLayout.blob(32,'nodehash'),
     ]),
   },
   DissolveGrant: {
@@ -802,7 +805,7 @@ export class SystemProgram {
         {pubkey: params.fromPubkey, isSigner: true, isWritable: true},
         {pubkey: params.toPubkey, isSigner: false, isWritable: true},
       ];
-    }
+    }//d4f136556df340bd533e94e0c1bcf90c1a2f5ea9684c9090404f9317c1ee4744 37538f1ed0ebf8a3a48e4461cd55e49b0120f87fdd13bfe48f3999d1b41926d3
 
     return new TransactionInstruction({
       keys,
@@ -881,6 +884,32 @@ export class SystemProgram {
   }
 
   /**
+   * Generate a transaction instruction to dissolve a grant
+   */
+  static dissolvegrant(
+    params: DissolveGrant,
+  ): TransactionInstruction {
+    let data;
+    let keys;
+
+    const type = SYSTEM_INSTRUCTION_LAYOUTS.DissolveGrant;
+    data = encodeData(type, {
+      granthash: params.GrantHash,
+    });
+    keys = [
+      {pubkey: params.fromPubkey, isSigner: true, isWritable: true},
+      {pubkey: GRANT_DATA_PUBKEY, isSigner: false, isWritable: true},
+    ];
+    //}
+
+    return new TransactionInstruction({
+      keys,
+      programId: this.programId,
+      data,
+    });
+  }
+
+  /**
    * Generate a transaction instruction to vote on a grant
    */
   static voteongrant(
@@ -898,6 +927,7 @@ export class SystemProgram {
     data = encodeData(type, {
       granthash: params.GrantHash,
       vote: vote_buffer,
+      nodehash: params.NodeHash,
     });
     keys = [
       {pubkey: params.fromPubkey, isSigner: true, isWritable: true},
