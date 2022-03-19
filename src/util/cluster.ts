@@ -1,12 +1,12 @@
 const endpoint = {
   http: {
-    devnet: 'http://api.devnet.solana.com',
-    testnet: 'http://api.testnet.solana.com',
+    devnet: 'http://api.devnet.solvia.io',
+    testnet: 'http://api.testnet.solvia.io',
     'mainnet-beta': 'http://api.mainnet-beta.solvia.io',
   },
   https: {
-    devnet: 'https://api.devnet.solana.com',
-    testnet: 'https://api.testnet.solana.com',
+    devnet: 'https://api.devnet.solvia.io',
+    testnet: 'https://api.testnet.solvia.io',
     'mainnet-beta': 'https://api.mainnet-beta.solvia.io',
   },
 };
